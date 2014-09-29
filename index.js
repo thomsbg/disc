@@ -1,4 +1,3 @@
-var unpack = require('browser-unpack')
 var builtins = require('builtins')
 var through = require('through')
 var resolve = require('resolve')
@@ -42,62 +41,54 @@ function createStream(opts) {
 function json(bundles, callback) {
   var modules = flatten(bundles
     .map(String)
-    .map(unpack)
-  ).map(function(module) {
-    if (typeof module === 'undefined') return callback(new Error(
-      'Unable to compile one of the supplied bundles!'
-    ))
-
-    if (typeof module.id !== 'number') return module
-
-    return callback(new Error(
-      'Please recompile this browserify bundle using the --full-paths flag ' +
-      '(when using the command-line interface) or with the fullPaths option ' +
-      'set to true (when using the JavaScript API).'
-    ))
-  })
+    .map(JSON.parse)
+    .map(function(json) {
+      return json.modules
+    })
+  )
 
   modules = modules.filter(function(module) {
     return !isEmpty(module)
   })
 
-  var browserifyModules = modules.filter(fromBrowserify(true))
-  var otherModules = modules.filter(function(module) {
-    if (path.basename(module.id) === '_empty.js') return false
-    if (browserifyModules.indexOf(module) === -1) return true
-  })
+  // var browserifyModules = modules.filter(fromBrowserify(true))
+  // var otherModules = modules.filter(function(module) {
+  //   if (path.basename(module.id) === '_empty.js') return false
+  //   if (browserifyModules.indexOf(module) === -1) return true
+  // })
 
-  var root = commondir(otherModules.map(pluck('id')))
+  // var root = commondir(otherModules.map(pluck('id')))
 
-  browserifyModules.forEach(function(module) {
-    var regex = /^.+\/node_modules\/browserify\/(?:node_modules\/)(.+)$/g
+  // browserifyModules.forEach(function(module) {
+  //   var regex = /^.+\/node_modules\/browserify\/(?:node_modules\/)(.+)$/g
 
-    module.id = module.id.replace(regex, function(_, subpath) {
-      return path.resolve(root, 'browserify-core/' + subpath)
-    })
+  //   module.id = module.id.replace(regex, function(_, subpath) {
+  //     return path.resolve(root, 'browserify-core/' + subpath)
+  //   })
 
-    return module
-  })
+  //   return module
+  // })
 
-  uniq(modules, function(a, b) {
-    return a.id === b.id ? 0 : 1
-  }, true)
+  // uniq(modules, function(a, b) {
+  //   return a.id === b.id ? 0 : 1
+  // }, true)
 
-  var ids  = modules.map(pluck('id'))
+  var root = commondir(modules.map(pluck('identifier')))
   var main = path.basename(root)
 
   var byid = modules.reduce(function(memo, mod) {
-    memo[mod.id] = mod
+    memo[mod.identifier] = mod
     return memo
   }, {})
 
-  fileTree(ids, function(id, next) {
+  fileTree(Object.keys(byid), function(id, next) {
     var row = byid[id]
+    if (!row) console.log(id)
 
     next(null, {
-        size: row.source.length
-      , deps: Object.keys(row.deps).length
-      , path: id
+        size: row.size
+      , deps: Object.keys(row.reasons).length
+      , path: row.name
     })
   }, function(err, tree) {
     if (err) return callback(err)
