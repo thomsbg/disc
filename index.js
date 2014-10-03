@@ -73,6 +73,12 @@ function json(bundles, callback) {
   //   return a.id === b.id ? 0 : 1
   // }, true)
 
+  modules = modules.filter(function(mod) {
+    return !mod.reasons.some(function(reason) {
+      return reason.type === 'cjs require context';
+    });
+  });
+
   var root = commondir(modules.map(pluck('identifier')))
   var main = path.basename(root)
 
